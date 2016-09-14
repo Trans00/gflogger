@@ -23,6 +23,8 @@ public interface LoggerService {
 
 	LogLevel getLevel();
 
+	void addLogger(String name, LogLevel level);
+
 	GFLogEntry log(final LogLevel level, final String categoryName, final long appenderMask);
 
 	FormattedGFLogEntry formattedLog(final LogLevel level, final String categoryName,

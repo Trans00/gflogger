@@ -14,11 +14,17 @@
 
 package org.gflogger;
 
+import java.lang.management.ManagementFactory;
+import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.gflogger.helpers.LogLog;
+
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
 
 /**
  * LogFactory
@@ -27,6 +33,7 @@ import org.gflogger.helpers.LogLog;
  */
 public final class GFLogFactory {
 
+    private static volatile GfLogFactoryJmx jmx;
 	private static volatile GFLogFactory FACTORY;
 
 	private final Object lock = new Object();
@@ -61,6 +68,10 @@ public final class GFLogFactory {
 	private GFLog get(final Class clazz){
 		return get(clazz.getName());
 	}
+
+	static GfLogFactoryJmx getJmx(){
+	    return jmx;
+    }
 
 	public static LoggerService lookupService(final String name) {
 		return getFactory().getService();
@@ -110,7 +121,43 @@ public final class GFLogFactory {
 				throw new IllegalArgumentException("Not a null logger service is expected");
 			factory.loggerService.set(service);
 		}
+		initJmx();
 		return factory;
 	}
 
+	private static void initJmx()  {
+		MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+		ObjectName objectName;
+		try {
+			objectName = new ObjectName("org.gflogger:Name=GfLogFactory,Type=GfLogFactoryJmx");
+		} catch (MalformedObjectNameException e){
+			LogLog.error("Failed to initialize JMX", e);
+			return;
+		}
+		if (!mbs.isRegistered(objectName)) {
+			GfLogFactoryJmx jmx = new GfLogFactoryJmx();
+			try {
+				mbs.registerMBean(jmx, objectName);
+			} catch (Exception e) {
+				LogLog.error("Failed to create mbean", e);
+                return;
+			}
+			GFLogFactory.jmx = jmx;
+		}
+	}
+
+	static class GfLogFactoryJmx implements GfLogFactoryJmxMBean {
+		private ConcurrentMap<String, GFLogView> getLoggersMap() {
+			return getFactory().loggers;
+		}
+
+		@Override
+        public void setLevel(String logger, String level){
+			GFLogView log = getLoggersMap().get(logger);
+            if(log != null) {
+                log.setLevel(LogLevel.valueOf(level));
+
+            }
+		}
+	}
 }

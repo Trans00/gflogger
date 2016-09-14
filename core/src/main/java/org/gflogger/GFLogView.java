@@ -14,6 +14,8 @@
 
 package org.gflogger;
 
+import org.gflogger.helpers.LogLog;
+
 /**
  * LoggerView
  *
@@ -45,6 +47,19 @@ public class GFLogView implements GFLog {
 		this.loggerService = loggerService;
 
 		final GFLogger[] loggers = loggerService != null ? loggerService.lookupLoggers(name) : GFLogger.EMPTY;
+		initApenderMask(loggers);
+
+		this.level = LogLevel.FATAL;
+		for (final GFLogger gfLogger : loggers) {
+			final LogLevel loggerLevel = gfLogger.getLogLevel();
+			this.level = !this.level.greaterThan(loggerLevel) ? this.level : loggerLevel;
+		}
+
+		this.valid = loggerService != null;
+		return this.loggerService;
+	}
+
+	private void initApenderMask(GFLogger[] loggers) {
 		for(int i = 0; i < LogLevel.values.length; i++){
 			final LogLevel level = LogLevel.values[i];
 			final int ordinal = level.ordinal();
@@ -59,16 +74,8 @@ public class GFLogView implements GFLog {
 				}
 			}
 		}
-
-		this.level = LogLevel.FATAL;
-		for (final GFLogger gfLogger : loggers) {
-			final LogLevel loggerLevel = gfLogger.getLogLevel();
-			this.level = !this.level.greaterThan(loggerLevel) ? this.level : loggerLevel;
-		}
-
-		this.valid = loggerService != null;
-		return this.loggerService;
 	}
+
 	private boolean hasNecessaryLevel(LogLevel level) {
 		return loggerService() != null && !this.level.greaterThan(level);
 	}
@@ -90,6 +97,19 @@ public class GFLogView implements GFLog {
 		return hasNecessaryLevel(logLevel) ?
 				loggerService.formattedLog(logLevel, name, pattern,  appenderMask[logLevel.ordinal()]) :
 					mockLogEntry;
+	}
+
+	public void setLevel(LogLevel logLevel){
+		LogLevel old = level;
+		level = logLevel;
+		if(!old.equals(level)){
+    		if(loggerService == null){
+	    		LogLog.error("Can't set logger level when there is no loggerService");
+			    return;
+		    }
+		    loggerService.addLogger(name,level);
+		    initApenderMask(loggerService.lookupLoggers(name));
+		}
 	}
 
 	@Override

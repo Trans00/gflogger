@@ -66,8 +66,8 @@ public class LoggerServiceImpl extends AbstractLoggerServiceImpl {
 		final GFLoggerBuilder[] loggerBuilders,
 		final AppenderFactory ... appenderFactories) {
 		this(count, maxMessageSize, null,
-			createAppenders(appenderFactories),
-			createLoggers(appenderFactories, loggerBuilders));
+			appenderFactories,
+			loggerBuilders);
 	}
 
 	/**
@@ -81,22 +81,22 @@ public class LoggerServiceImpl extends AbstractLoggerServiceImpl {
 		final GFLoggerBuilder[] loggerBuilders,
 		final AppenderFactory ... appenderFactories) {
 		this(count, maxMessageSize, objectFormatterFactory,
-			createAppenders(appenderFactories),
-			createLoggers(appenderFactories, loggerBuilders));
+			appenderFactories,
+			loggerBuilders);
 	}
 
 	/**
 	 * @param count a number of items in the ring
 	 * @param maxMessageSize max message size in the ring (in chars)
 	 * @param objectFormatterFactory
-	 * @param appenders
+	 * @param appenderFactories
 	 */
 	private LoggerServiceImpl(final int count, final int maxMessageSize,
 		final ObjectFormatterFactory objectFormatterFactory,
-		final Appender[] appenders,
-		final GFLogger[] loggers) {
+		final AppenderFactory[] appenderFactories,
+		final GFLoggerBuilder[] loggers) {
 
-		super(count, maxMessageSize, objectFormatterFactory, loggers, appenders);
+		super(count, maxMessageSize, objectFormatterFactory, loggers, appenderFactories);
 
 		// quick check is count = 2^k ?
 		final int c = (count & (count - 1)) != 0 ?
@@ -143,7 +143,7 @@ public class LoggerServiceImpl extends AbstractLoggerServiceImpl {
 			}
 		});
 
-		final EntryHandler entryHandler = new EntryHandler(this, appenders);
+		final EntryHandler entryHandler = new EntryHandler(this, this.appenders);
 		disruptor.handleEventsWith(entryHandler);
 
 		ringBuffer = disruptor.start();

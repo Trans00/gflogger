@@ -59,6 +59,11 @@ public class Log4jLoggerServiceImpl implements LoggerService {
 	}
 
 	@Override
+	public void addLogger(String name, LogLevel level) {
+
+	}
+
+	@Override
 	public GFLogEntry log(LogLevel level, String categoryName, final long appenderMask) {
 		final Map<String, Log4jEntry> map = entries.get();
 		Log4jEntry entry = map.get(categoryName);

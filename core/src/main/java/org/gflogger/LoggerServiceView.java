@@ -17,6 +17,11 @@ public class LoggerServiceView implements LoggerService {
 	}
 
 	@Override
+	public void addLogger(String name, LogLevel level) {
+		service.addLogger(name, level);
+	}
+
+	@Override
 	public GFLogEntry log(LogLevel level, String categoryName, final long appenderMask) {
 		return service.log(level, categoryName, appenderMask);
 	}

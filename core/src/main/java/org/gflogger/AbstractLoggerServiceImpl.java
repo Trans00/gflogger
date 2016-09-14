@@ -21,10 +21,12 @@ import org.gflogger.util.NamedThreadFactory;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -40,7 +42,8 @@ public abstract class AbstractLoggerServiceImpl implements LoggerService {
 
 	protected final LogLevel							level;
 	protected final Appender[]							appenders;
-	protected final GFLogger[]							loggers;
+	protected final AppenderFactory[]					appenderFactories;
+	protected final CopyOnWriteArrayList<GFLogger>		loggers;
 
 	protected final ThreadLocal<LocalLogEntry>			logEntryThreadLocal;
 
@@ -54,20 +57,21 @@ public abstract class AbstractLoggerServiceImpl implements LoggerService {
 	 * @param count a number of items in the ring, could be rounded up to the next power of 2
 	 * @param maxMessageSize max message size in the ring (in chars)
 	 * @param objectFormatterFactory
-	 * @param appenders
+	 * @param appenderFactories
 	 */
 	public AbstractLoggerServiceImpl(
 		final int count,
 		final int maxMessageSize,
 		final ObjectFormatterFactory objectFormatterFactory,
-		final GFLogger[] loggers,
-		final Appender ... appenders
+		final GFLoggerBuilder[] loggerBuilders,
+		final AppenderFactory ... appenderFactories
 	) {
-		if (appenders.length <= 0){
+		if (appenderFactories.length <= 0){
 			throw new IllegalArgumentException("Expected at least one appender");
 		}
-		this.loggers = loggers;
-		this.appenders = appenders;
+		this.appenders = createAppenders(appenderFactories);
+		this.loggers = new CopyOnWriteArrayList<>(createLoggers(appenderFactories,loggerBuilders));
+		this.appenderFactories = appenderFactories;
 		this.multibyte = multibyte(appenders);
 
 		// unicode char has 2 bytes
@@ -121,6 +125,26 @@ public abstract class AbstractLoggerServiceImpl implements LoggerService {
 		return appenders;
 	}
 
+	@Override
+	public void addLogger(String name, LogLevel logLevel){
+		GFLogger found = null;
+		for(GFLogger logger : loggers){
+			if(logger.getCategory() != null && logger.getCategory().equals(name)){
+				found = logger;
+				break;
+			}
+		}
+		if(found == null){
+			GFLoggerBuilder builder = new GFLoggerBuilder();
+			builder.setName(name);
+			builder.setAdditivity(true);
+			builder.setLogLevel(logLevel);
+			builder.setAppenderFactories(Arrays.asList(appenderFactories));
+			found = builder.build();
+		}
+		loggers.add(found);
+	}
+
 	protected static GFLogger[] createLoggers(
 		AppenderFactory[] appenderFactories,
 		GFLoggerBuilder[] loggerBuilders
@@ -132,10 +156,10 @@ public abstract class AbstractLoggerServiceImpl implements LoggerService {
 		return loggers;
 	}
 
-	protected final LogLevel initLogLevel(final GFLogger ... loggers) {
+	protected final LogLevel initLogLevel(final List<GFLogger> loggers) {
 		LogLevel level = LogLevel.FATAL;
-		for (int i = 0; i < loggers.length; i++) {
-			final LogLevel l = loggers[i].getLogLevel();
+		for (GFLogger logger : loggers) {
+			final LogLevel l = logger.getLogLevel();
 			level = !level.greaterThan(l) ? level : l;
 		}
 		return level;
